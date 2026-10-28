@@ -2,6 +2,8 @@
 
 Run [AptaSuite](https://github.com/drivenbyentropy/aptasuite) (HT-SELEX aptamer analysis: AptaPLEX, AptaCLUSTER, AptaTRACE, structure prediction) as Slurm jobs on ISU Nova.
 
+> **AptaSuite is not our software.** AptaSuite and its algorithms are the work of Jan Hoinka and colleagues; its structure predictions build on CapR and the ViennaRNA package, by other groups. This repo only adds scripts for running it on Nova and is not affiliated with or endorsed by the AptaSuite authors. If you use it, cite their papers: see [How to cite](#how-to-cite).
+
 This repo does not contain AptaSuite. `install.sh` downloads the official v0.9.8 release from the authors' GitHub and checks its SHA-256. What the repo adds:
 
 - **`run_aptasuite.sbatch`:** a job script that loads Java 11, sizes the Java heap from your Slurm memory request, runs the AptaSuite command line, and marks the job FAILED when AptaSuite reports an error (AptaSuite's own exit status is unreliable).
@@ -75,12 +77,18 @@ Structure prediction dominates. At the measured rate, 10 million unique sequence
 
 ISU Nova (RHEL 9, x86-64), AptaSuite 0.9.8, OpenJDK 11.0.31, October 2026. Not tested on other clusters; on another Slurm cluster, set `JAVA_MODULE` to a local Java 11 module.
 
-## Credit and license
+## How to cite
 
-AptaSuite is by Jan Hoinka and colleagues and is licensed GPL-3.0. If you use it, cite:
+Cite AptaSuite, plus the paper for each step you ran. The AptaSuite entries follow AptaSuite's own Help → How to Cite dialog, which you cannot open on Nova. The two structure-prediction steps are AptaSuite's Java ports of CapR and RNAfold, so cite those too. `-trace` uses the CapR predictions, so AptaTRACE users should cite CapR as well.
 
-> Hoinka, J., Backofen, R. and Przytycka, T. M. (2018). AptaSUITE: A Full-Featured Bioinformatics Framework for the Comprehensive Analysis of Aptamers from HT-SELEX Experiments. *Molecular Therapy - Nucleic Acids* 11, 515–517. https://doi.org/10.1016/j.omtn.2018.04.006
+- **AptaSuite (always):** Hoinka J, Backofen R, Przytycka TM (2018). AptaSUITE: A Full-Featured Bioinformatics Framework for the Comprehensive Analysis of Aptamers from HT-SELEX Experiments. *Mol Ther Nucleic Acids* 11:515–517. https://doi.org/10.1016/j.omtn.2018.04.006
+- **`-parse` (AptaPLEX):** Hoinka J, Przytycka T (2016). AptaPLEX - A dedicated, multithreaded demultiplexer for HT-SELEX data. *Methods* 106:82–85. https://doi.org/10.1016/j.ymeth.2016.04.011
+- **`-predict structure` (CapR):** Fukunaga T, Ozaki H, Terai G, Asai K, Iwasaki W, Kiryu H (2014). CapR: revealing structural specificities of RNA-binding protein target recognition using CLIP-seq data. *Genome Biol* 15(1):R16. https://doi.org/10.1186/gb-2014-15-1-r16
+- **`-predict bppm` (RNAfold, ViennaRNA package 1.8.5):** Hofacker IL, Fontana W, Stadler PF, Bonhoeffer LS, Tacker M, Schuster P (1994). Fast folding and comparison of RNA secondary structures. *Monatsh Chem* 125:167–188. https://doi.org/10.1007/BF00818163
+- **`-cluster` (AptaCLUSTER):** Hoinka J, Berezhnoy A, Sauna ZE, Gilboa E, Przytycka TM (2014). AptaCluster – A Method to Cluster HT-SELEX Aptamer Pools and Lessons from Its Application. *Lecture Notes in Computer Science* 8394:115–128. https://doi.org/10.1007/978-3-319-05269-4_9
+- **`-trace` (AptaTRACE):** Dao P, Hoinka J, Takahashi M, Zhou J, Ho M, Wang Y, Costa F, Rossi JJ, Backofen R, Burnett J, Przytycka TM (2016). AptaTRACE Elucidates RNA Sequence-Structure Motifs from Selection Trends in HT-SELEX Experiments. *Cell Syst* 3(1):62–70. https://doi.org/10.1016/j.cels.2016.07.003
+- **`-simulate` (AptaSIM) and AptaMUT:** Hoinka J, Berezhnoy A, Dao P, Sauna ZE, Gilboa E, Przytycka TM (2015). Large scale analysis of the mutational landscape in HT-SELEX improves aptamer discovery. *Nucleic Acids Res* 43(12):5699–5707. https://doi.org/10.1093/nar/gkv308
 
-and the algorithms you used (listed in the AptaSuite GUI under Help → How to Cite, and printed in the job log).
+## License
 
-The scripts in this repo are Apache-2.0 (`LICENSE`).
+AptaSuite is licensed GPL-3.0 by its authors. `install.sh` downloads it from their official release; this repo does not redistribute it. The scripts in this repo are Apache-2.0 (`LICENSE`).
