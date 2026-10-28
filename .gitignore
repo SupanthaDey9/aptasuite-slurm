@@ -1,0 +1,4 @@
+aptasuite-*/
+aptasuite-*.zip
+test/work/
+aptasuite_*.out
