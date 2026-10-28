@@ -1,34 +1,46 @@
-# aptasuite-nova
+# aptasuite-slurm
 
-Run [AptaSuite](https://github.com/drivenbyentropy/aptasuite) (HT-SELEX aptamer analysis: AptaPLEX, AptaCLUSTER, AptaTRACE, structure prediction) as Slurm jobs on ISU Nova.
+Run [AptaSuite](https://github.com/drivenbyentropy/aptasuite) (HT-SELEX aptamer analysis: AptaPLEX, AptaCLUSTER, AptaTRACE, structure prediction) as Slurm jobs on an HPC cluster.
 
-> **AptaSuite is not our software.** AptaSuite and its algorithms are the work of Jan Hoinka and colleagues; its structure predictions build on CapR and the ViennaRNA package, by other groups. This repo only adds scripts for running it on Nova and is not affiliated with or endorsed by the AptaSuite authors. If you use it, cite their papers: see [How to cite](#how-to-cite).
+> **AptaSuite is not our software.** AptaSuite and its algorithms are the work of Jan Hoinka and colleagues; its structure predictions build on CapR and the ViennaRNA package, by other groups. This repo only adds scripts for running it on a Slurm cluster and is not affiliated with or endorsed by the AptaSuite authors. If you use it, cite their papers: see [How to cite](#how-to-cite).
 
 This repo does not contain AptaSuite. `install.sh` downloads the official v0.9.8 release from the authors' GitHub and checks its SHA-256. What the repo adds:
 
-- **`run_aptasuite.sbatch`:** a job script that loads Java 11, sizes the Java heap from your Slurm memory request, runs the AptaSuite command line, and marks the job FAILED when AptaSuite reports an error (AptaSuite's own exit status is unreliable).
+- **`run_aptasuite.sbatch`:** a job script that finds Java 11, sizes the Java heap from your Slurm memory request, runs the AptaSuite command line, and marks the job FAILED when AptaSuite reports an error (AptaSuite's own exit status is unreliable).
 - **`example.cfg`:** a configuration template with every required setting.
 - **`test/smoke_test.sbatch`:** a 10-minute end-to-end test that prints PASS or FAIL.
 
-The interactive AptaSuite GUI is not available on Nova; the command line runs the analyses (import, structure prediction, clustering, AptaTRACE, export).
+The interactive AptaSuite GUI is not used here; the command line runs the analyses (import, structure prediction, clustering, AptaTRACE, export).
+
+## What you need
+
+| Component | Notes |
+|---|---|
+| Linux cluster with Slurm | tested on ISU Nova |
+| Java 11 | on PATH or as a module; the job script tries `openjdk/11` and `java/11`, or set `JAVA_MODULE`. Java 8 (AptaSuite's own target) is also accepted but was not tested here; Java 17+ does not work. |
+| curl, unzip, sha256sum | for `install.sh` |
+| python3 | only for the smoke test |
+| about 1.5 GB of disk | the install plus one test run |
 
 ## Install (once)
 
+On your cluster's login node, in a project or scratch folder (not a small home directory, and no spaces in the path):
+
 ```bash
-ssh <NetID>@nova.its.iastate.edu
-cd /work/YOURGROUP/YOU            # ~1.5 GB free, no spaces in the path; not your small home directory
-git clone https://github.com/SupanthaDey9/aptasuite-nova.git
-cd aptasuite-nova
+git clone https://github.com/SupanthaDey9/aptasuite-slurm.git
+cd aptasuite-slurm
 ./install.sh                       # downloads AptaSuite 0.9.8 (345 MB), about a minute
-sbatch test/smoke_test.sbatch      # add -A <account> if you have several Slurm accounts
+sbatch test/smoke_test.sbatch      # add -p <partition> / -A <account> if your cluster needs them
 ```
 
 When the test job ends, `aptasuite_test_<jobid>.out` should finish with `PASS`. The test makes a synthetic 3-round SELEX dataset with 5 planted winners, runs every module, and checks that the 5 largest clusters are those winners and that AptaTRACE wrote motifs. Each run leaves under 1 GB in `test/work/<jobid>/`, which you can remove afterwards.
 
+If the job stops with `Java 11 not found`, find your cluster's Java 11 module (`module avail openjdk java`) and submit with `sbatch --export=ALL,JAVA_MODULE=<that module> ...`.
+
 ## Run your data
 
 ```bash
-R=/work/YOURGROUP/YOU/aptasuite-nova           # where you cloned it
+R=/path/to/aptasuite-slurm                     # where you cloned it
 cp $R/example.cfg my_selex.cfg                 # edit the lines marked EDIT
 sbatch $R/run_aptasuite.sbatch my_selex.cfg \
     -parse -predict structure -cluster -trace -export pool,cycles,clusters,clustertable
@@ -43,9 +55,9 @@ sbatch $R/run_aptasuite.sbatch my_selex.cfg \
 - **Outputs.** Everything goes under `Experiment.projectPath`: the database, `logs/`, and `export/` (including `export/aptatrace/`).
 - **Job log.** `aptasuite_<jobid>.out` is written in the folder you submitted from.
 
-## Measured on Nova
+## Measured on ISU Nova
 
-Synthetic data, 3 rounds of 20,000 reads, 40-nt random region (71-nt reads after primers), 50,878 unique sequences, 8 cores, Java 11:
+Synthetic data, 3 rounds of 20,000 reads, 40-nt random region (71-nt reads after primers), 50,878 unique sequences, 8 cores of one node, Java 11:
 
 | step | time | rate |
 |---|---|---|
@@ -54,7 +66,7 @@ Synthetic data, 3 rounds of 20,000 reads, 40-nt random region (71-nt reads after
 | `-predict bppm` | 106 s | about 490 sequences/s |
 | `-cluster -trace -export` | 74 s | |
 
-Structure prediction dominates. At the measured rate, 10 million unique sequences of similar length would take about 15 h on 8 cores; if it scales linearly with cores (not measured), about 4 h on 32. Each number is a single run (n = 1).
+Structure prediction dominates. At the measured rate, 10 million unique sequences of similar length would take about 15 h on 8 cores; if it scales linearly with cores (not measured), about 4 h on 32. Each number is a single run (n = 1), and other clusters' CPUs will differ.
 
 ## Things that will bite you
 
@@ -66,20 +78,18 @@ Structure prediction dominates. At the measured rate, 10 million unique sequence
 - **AptaSuite's exit status is unreliable.** It exits 0 even on a misspelled option, an exception in one of its worker threads, or an unreadable input file. `run_aptasuite.sbatch` therefore marks the job FAILED when the output contains `Exception in thread` or `Parameter Error`, or this run's log in `<projectPath>/logs/` contains a SEVERE entry.
   Every run prints a harmless `IntrospectionException` DEBUG line at start-up; ignore it.
 - **Structure exports are large.** `-export structures` wrote 168 MB for 51k sequences, so tens of GB for a full dataset. Leave it out unless you need it.
-- **Use Java 11.** The job script loads `openjdk/11.0.31_11-b3sms67`. Under Java 17 and 21 (`openjdk/17.0.11_9-cvie7ad`, `openjdk/21.0.3_9-vngib7s`), `-parse` throws `InaccessibleObjectException` while saving the experiment metadata, carries on, and AptaSuite still exits 0.
-  In our test the imported reads were identical to the Java 11 run, but the metadata file was not saved cleanly.
-  To use another module anyway: `sbatch --export=ALL,JAVA_MODULE=<module> ...`; `JAVA_MODULE=` (empty) uses the `java` already on your PATH.
+- **Use Java 11, not 17 or newer.** Under Java 17 and 21, `-parse` throws `InaccessibleObjectException` while saving the experiment metadata, carries on, and AptaSuite still exits 0. In our test the imported reads were identical to the Java 11 run, but the metadata file was not saved cleanly. The job script therefore runs only on Java 11 or 8.
 - **Clustering is not deterministic.** AptaCLUSTER uses random hashing, so the same data gives slightly different cluster sizes from run to run (a few percent for the top clusters in our tests). The imported counts themselves are identical.
-- **Keep the job script in the clone.** It finds AptaSuite next to itself. If you submit a copy from somewhere else, add `--export=ALL,APTA_HOME=/path/to/aptasuite-nova`; it is simpler to pass options on the sbatch line instead of editing a copy.
-- **Submitting from a script or over plain `ssh nova 'sbatch ...'`** works too: the job script loads Nova's module setup itself.
+- **Keep the job script in the clone.** It finds AptaSuite next to itself. If you submit a copy from somewhere else, add `--export=ALL,APTA_HOME=/path/to/aptasuite-slurm`; it is simpler to pass options on the sbatch line instead of editing a copy.
+- **Submitting from a script or over plain `ssh <cluster> 'sbatch ...'`** works too: when the `module` command is missing, the job script loads the system profile itself.
 
 ## Tested with
 
-ISU Nova (RHEL 9, x86-64), AptaSuite 0.9.8, OpenJDK 11.0.31, October 2026. Not tested on other clusters; on another Slurm cluster, set `JAVA_MODULE` to a local Java 11 module.
+ISU Nova (RHEL 9, x86-64, Slurm, Lmod modules), AptaSuite 0.9.8, OpenJDK 11.0.31, October 2026. On Nova the job script finds `openjdk/11` by itself. Other clusters have not been tested; the smoke test tells you in 10 minutes whether it works on yours.
 
 ## How to cite
 
-Cite AptaSuite, plus the paper for each step you ran. The AptaSuite entries follow AptaSuite's own Help → How to Cite dialog, which you cannot open on Nova. The two structure-prediction steps are AptaSuite's Java ports of CapR and RNAfold, so cite those too. `-trace` uses the CapR predictions, so AptaTRACE users should cite CapR as well.
+Cite AptaSuite, plus the paper for each step you ran. The AptaSuite entries follow AptaSuite's own Help → How to Cite dialog, which is only in the GUI. The two structure-prediction steps are AptaSuite's Java ports of CapR and RNAfold, so cite those too. `-trace` uses the CapR predictions, so AptaTRACE users should cite CapR as well.
 
 - **AptaSuite (always):** Hoinka J, Backofen R, Przytycka TM (2018). AptaSUITE: A Full-Featured Bioinformatics Framework for the Comprehensive Analysis of Aptamers from HT-SELEX Experiments. *Mol Ther Nucleic Acids* 11:515–517. https://doi.org/10.1016/j.omtn.2018.04.006
 - **`-parse` (AptaPLEX):** Hoinka J, Przytycka T (2016). AptaPLEX - A dedicated, multithreaded demultiplexer for HT-SELEX data. *Methods* 106:82–85. https://doi.org/10.1016/j.ymeth.2016.04.011

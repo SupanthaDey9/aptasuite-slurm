@@ -3,7 +3,7 @@
 # dataset with 5 planted winners, runs every AptaSuite module through run_aptasuite.sbatch,
 # and prints PASS if the 5 largest clusters in the last round are the 5 winners.
 #
-#   sbatch /path/to/aptasuite-nova/test/smoke_test.sbatch      (add -A <account> if needed)
+#   sbatch /path/to/aptasuite-slurm/test/smoke_test.sbatch      (add -p/-A if your cluster needs them)
 #
 # Takes about 10 minutes on 8 cores. Each run writes into its own test/work/<jobid>/
 # inside the clone (under 1 GB; safe to remove afterwards).
@@ -15,8 +15,8 @@
 #SBATCH --time=01:00:00
 #SBATCH --output=aptasuite_test_%j.out
 
-if [[ ${MODULEPATH:-} != */opt/rit/* ]] || ! type module >/dev/null 2>&1; then
-    source /etc/profile >/dev/null 2>&1
+if ! type module >/dev/null 2>&1; then
+    source /etc/profile >/dev/null 2>&1 || true
 fi
 
 set -euo pipefail
@@ -37,7 +37,7 @@ W=$TEST/work/${SLURM_JOB_ID:-$$}
 python3 "$TEST/make_test_data.py" "$W/data" 20000
 
 cat > "$W/test.cfg" <<EOF
-Experiment.name = "aptasuite-nova smoke test"
+Experiment.name = "aptasuite-slurm smoke test"
 Experiment.description = "synthetic 3-round SELEX with 5 planted winners"
 Experiment.projectPath = $W/project
 Experiment.primer5 = GGGAGGACGATGCGG

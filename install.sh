@@ -1,6 +1,6 @@
 #!/bin/bash
 # Download the official AptaSuite release next to this script and check its checksum.
-# Run once on a Nova login node after cloning:  ./install.sh
+# Run once on your cluster's login node after cloning:  ./install.sh
 set -euo pipefail
 
 VERSION=0.9.8

@@ -2,13 +2,16 @@
 # Run the AptaSuite command-line interface as a Slurm job.
 #
 # Usage, from any folder:
-#   sbatch [sbatch options] /path/to/aptasuite-nova/run_aptasuite.sbatch experiment.cfg -parse -predict structure -cluster -trace -export pool
+#   sbatch [sbatch options] /path/to/aptasuite-slurm/run_aptasuite.sbatch experiment.cfg -parse -predict structure -cluster -trace -export pool
 #
 # Everything after the config file is passed to AptaSuite unchanged
 # (options: -parse -simulate -predict structure,bppm -cluster -trace -export ...).
 # Change cores, memory and time with sbatch options before the script path
-# (-c 32 --mem=128G -t 48:00:00), and add -A <account> if you have more than one Slurm
-# account. Set Performance.maxNumberOfCores in the config to the same number of cores.
+# (-c 32 --mem=128G -t 48:00:00), and add -p <partition> / -A <account> if your cluster
+# needs them. Set Performance.maxNumberOfCores in the config to the same number of cores.
+#
+# Needs Java 11 (or 8): the java on PATH if it is one of those, else module openjdk/11 or
+# java/11, else the module named in JAVA_MODULE (sbatch --export=ALL,JAVA_MODULE=<module>).
 #
 # The job is marked FAILED if AptaSuite prints "Exception in thread" or "Parameter Error",
 # or logs a SEVERE error, because AptaSuite itself often exits 0 after an error.
@@ -20,9 +23,9 @@
 #SBATCH --time=24:00:00
 #SBATCH --output=aptasuite_%j.out
 
-# A job submitted from a non-login (or non-bash) shell has no `module` or site MODULEPATH.
-if [[ ${MODULEPATH:-} != */opt/rit/* ]] || ! type module >/dev/null 2>&1; then
-    source /etc/profile >/dev/null 2>&1
+# A job submitted from a non-login (or non-bash) shell may have no `module` command.
+if ! type module >/dev/null 2>&1; then
+    source /etc/profile >/dev/null 2>&1 || true
 fi
 
 set -euo pipefail
@@ -47,14 +50,24 @@ fi
 JAR=$APTA_HOME/aptasuite-0.9.8/aptasuite-0.9.8.jar
 if [ ! -f "$JAR" ]; then
     echo "AptaSuite not found at $JAR." >&2
-    echo "Run install.sh in your aptasuite-nova clone; if you submitted a copy of this script" >&2
-    echo "from elsewhere, add --export=ALL,APTA_HOME=/path/to/aptasuite-nova to sbatch." >&2
+    echo "Run install.sh in your aptasuite-slurm clone; if you submitted a copy of this script" >&2
+    echo "from elsewhere, add --export=ALL,APTA_HOME=/path/to/aptasuite-slurm to sbatch." >&2
     exit 1
 fi
 
-# Java 11 (tested). Set JAVA_MODULE="" to use whatever `java` is already on PATH.
-JAVA_MODULE=${JAVA_MODULE-openjdk/11.0.31_11-b3sms67}
-if [ -n "$JAVA_MODULE" ]; then module load "$JAVA_MODULE"; fi
+# Java 11 (tested) or 8 (AptaSuite's own target). Under Java 17+ AptaSuite fails while
+# saving its metadata, so never fall through to whatever newer java happens to be on PATH.
+java_ok() { local v; v=$(java -version 2>&1 || true); [[ $v == *'version "11.'* || $v == *'version "1.8.'* ]]; }
+if [ -n "${JAVA_MODULE:-}" ]; then
+    module load "$JAVA_MODULE"
+elif ! java_ok; then
+    module load openjdk/11 >/dev/null 2>&1 || module load java/11 >/dev/null 2>&1 || true
+fi
+if ! java_ok; then
+    echo "Java 11 not found. Submit with --export=ALL,JAVA_MODULE=<your cluster's Java 11 module>" >&2
+    echo "(see 'module avail openjdk java'), or load it before submitting." >&2
+    exit 1
+fi
 
 # AptaSuite silently writes next to the config file if projectPath does not exist yet.
 # It uses the first projectPath line, so do the same.
