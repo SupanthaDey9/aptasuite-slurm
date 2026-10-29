@@ -1,6 +1,6 @@
 #!/bin/bash
 # End-to-end check of this install on a compute node: makes a synthetic 3-round SELEX
-# dataset with 5 planted winners, runs every AptaSuite module through run_aptasuite.sbatch,
+# dataset with 5 planted winners, runs every AptaSuite step except -simulate through run_aptasuite.sbatch,
 # and prints PASS if the 5 largest clusters in the last round are the 5 winners.
 #
 #   sbatch /path/to/aptasuite-slurm/test/smoke_test.sbatch      (add -p/-A if your cluster needs them)

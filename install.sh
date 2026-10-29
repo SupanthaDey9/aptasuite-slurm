@@ -31,4 +31,4 @@ unzip -q "$TMP/aptasuite.zip" -d "$TMP"
 mv "$TMP/aptasuite-$VERSION" "$HERE/"
 
 echo "Installed: $JAR"
-echo "Next: sbatch $HERE/test/smoke_test.sbatch   (about 10 minutes; prints PASS or FAIL)"
+echo "Next: sbatch $HERE/test/smoke_test.sbatch   (about 10 minutes; ends with PASS if everything works)"

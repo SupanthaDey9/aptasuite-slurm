@@ -10,8 +10,8 @@
 # (-c 32 --mem=128G -t 48:00:00), and add -p <partition> / -A <account> if your cluster
 # needs them. Set Performance.maxNumberOfCores in the config to the same number of cores.
 #
-# Needs Java 11 (or 8): the java on PATH if it is one of those, else module openjdk/11 or
-# java/11, else the module named in JAVA_MODULE (sbatch --export=ALL,JAVA_MODULE=<module>).
+# Needs Java 11 (or 8): the module named in JAVA_MODULE if set (sbatch --export=ALL,JAVA_MODULE=<module>),
+# else the java on PATH if it is 11 or 8, else module openjdk/11, java/11 or Java/11.
 #
 # The job is marked FAILED if AptaSuite prints "Exception in thread" or "Parameter Error",
 # or logs a SEVERE error, because AptaSuite itself often exits 0 after an error.
@@ -61,11 +61,12 @@ java_ok() { local v; v=$(java -version 2>&1 || true); [[ $v == *'version "11.'* 
 if [ -n "${JAVA_MODULE:-}" ]; then
     module load "$JAVA_MODULE"
 elif ! java_ok; then
-    module load openjdk/11 >/dev/null 2>&1 || module load java/11 >/dev/null 2>&1 || true
+    module load openjdk/11 >/dev/null 2>&1 || module load java/11 >/dev/null 2>&1 \
+        || module load Java/11 >/dev/null 2>&1 || true
 fi
 if ! java_ok; then
     echo "Java 11 not found. Submit with --export=ALL,JAVA_MODULE=<your cluster's Java 11 module>" >&2
-    echo "(see 'module avail openjdk java'), or load it before submitting." >&2
+    echo "(see 'module avail openjdk java Java'), or load it before submitting." >&2
     exit 1
 fi
 

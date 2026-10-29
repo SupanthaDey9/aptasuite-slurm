@@ -1,4 +1,4 @@
 aptasuite-*/
-aptasuite-*.zip
+.install.*/
 test/work/
 aptasuite_*.out
